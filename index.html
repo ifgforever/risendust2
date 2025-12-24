@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin — Library</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin:0; background:#0b1220; color:#e5e7eb; }
+    .wrap { max-width: 880px; margin: 0 auto; padding: 28px 16px; }
+    .card { background:#111a2e; border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:16px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+    h1 { margin:0 0 10px; font-size: 22px; }
+    p { color:#a7b0c0; margin: 6px 0 14px; }
+    label { display:block; margin: 10px 0 6px; color:#cfd6e4; font-size: 13px; }
+    input, textarea, select {
+      width:100%; box-sizing:border-box;
+      padding:12px; border-radius:12px;
+      border:1px solid rgba(255,255,255,.10);
+      background:#0b1220; color:#e5e7eb;
+      outline:none;
+    }
+    textarea { min-height: 90px; resize: vertical; }
+    .row { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    .btn {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: linear-gradient(180deg, #1f3a8a, #162a62);
+      color:#fff; font-weight: 700;
+      cursor:pointer;
+    }
+    .btn:disabled { opacity:.6; cursor:not-allowed; }
+    .status { margin-top: 12px; font-size: 13px; color:#cbd5e1; white-space: pre-wrap; }
+    .hint { font-size: 12px; color:#94a3b8; margin-top:6px; }
+    code { background: rgba(255,255,255,.08); padding:2px 6px; border-radius:8px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Admin — Add Document</h1>
+      <p>Upload your file to <b>R2</b> first, then paste the <b>object key</b> here (example: <code>health/detox-protocol.pdf</code>).</p>
+
+      <label>Admin Token</label>
+      <input id="token" type="password" placeholder="Paste ADMIN_TOKEN" />
+
+      <div class="row">
+        <div>
+          <label>Category</label>
+          <select id="category">
+            <option value="health">Health</option>
+            <option value="law">Legal</option>
+          </select>
+        </div>
+        <div>
+          <label>Price</label>
+          <select id="price">
+            <option value="0">Free (email gate later)</option>
+            <option value="100">$1 (paid)</option>
+          </select>
+          <div class="hint">Store price as cents. 100 = $1</div>
+        </div>
+      </div>
+
+      <label>Title</label>
+      <input id="title" placeholder="e.g., Tenant Rights Template" />
+
+      <label>Description</label>
+      <textarea id="description" placeholder="Short summary of what this document is and who it helps."></textarea>
+
+      <label>Tags (comma-separated)</label>
+      <input id="tags" placeholder="e.g., landlord, lease, eviction" />
+
+      <label>R2 Object Key</label>
+      <input id="r2key" placeholder="e.g., law/tenant-rights-template.pdf" />
+
+      <button class="btn" id="btn">Add Document</button>
+      <div class="status" id="status"></div>
+    </div>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  $("btn").addEventListener("click", async () => {
+    $("status").textContent = "";
+    $("btn").disabled = true;
+
+    const payload = {
+      category: $("category").value.trim(),
+      price_cents: Number($("price").value),
+      title: $("title").value.trim(),
+      description: $("description").value.trim(),
+      tags: $("tags").value.trim(),
+      r2_key: $("r2key").value.trim()
+    };
+
+    // basic validation
+    const missing = Object.entries(payload).filter(([k,v]) => (k !== "description" && k !== "tags") && (!v && v !== 0));
+    if (missing.length) {
+      $("status").textContent = "Missing: " + missing.map(x => x[0]).join(", ");
+      $("btn").disabled = false;
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/admin/documents", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-admin-token": $("token").value.trim()
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || ("HTTP " + res.status));
+
+      $("status").textContent = "✅ Added!\n" + JSON.stringify(data, null, 2);
+      $("title").value = "";
+      $("description").value = "";
+      $("tags").value = "";
+      $("r2key").value = "";
+    } catch (err) {
+      $("status").textContent = "❌ Error: " + err.message;
+    } finally {
+      $("btn").disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
